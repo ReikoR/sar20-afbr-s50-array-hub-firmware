@@ -128,7 +128,7 @@ int main(void)
       HAL_GPIO_WritePin(CSn1_GPIO_Port, CSn1_Pin, GPIO_PIN_SET);
 
       debugFeedback.distance0 = distances[0];
-      HAL_UART_Transmit(&huart3, (uint8_t*)&doneFlags, sizeof(doneFlags), 1000);
+      HAL_UART_Transmit(&huart3, (uint8_t*)&debugFeedback, sizeof(debugFeedback), 1000);
 
       doneFlags = 0;
     }
