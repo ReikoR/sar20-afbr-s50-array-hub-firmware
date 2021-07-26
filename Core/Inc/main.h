@@ -65,6 +65,11 @@ void Error_Handler(void);
 #define DONE1_Pin GPIO_PIN_1
 #define DONE1_GPIO_Port GPIOF
 #define DONE1_EXTI_IRQn EXTI1_IRQn
+#define DONE2_Pin GPIO_PIN_0
+#define DONE2_GPIO_Port GPIOA
+#define DONE2_EXTI_IRQn EXTI0_IRQn
+#define CSn2_Pin GPIO_PIN_1
+#define CSn2_GPIO_Port GPIOA
 #define TRIG_Pin GPIO_PIN_4
 #define TRIG_GPIO_Port GPIOB
 #define LED1_Pin GPIO_PIN_9

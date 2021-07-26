@@ -19,6 +19,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <string.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -28,8 +29,14 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 typedef struct __attribute__((packed)) DebugFeedback {
-  uint16_t distance0;
+  uint16_t distances[2];
+  uint16_t delimiter;
 } DebugFeedback;
+
+typedef struct {
+  GPIO_TypeDef *port;
+  uint16_t pin;
+} PortPin;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -48,10 +55,15 @@ UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 DebugFeedback debugFeedback = {
-    .distance0 = 0
+    .distances = {},
+    .delimiter = 0x0a0d
 };
 
-uint16_t distances[12] = {};
+PortPin chipSelectPortPins[2] = {
+    {CSn1_GPIO_Port, CSn1_Pin},
+    {CSn2_GPIO_Port, CSn2_Pin}
+};
+uint16_t distances[2] = {};
 uint16_t doneFlags = 0;
 /* USER CODE END PV */
 
@@ -122,15 +134,20 @@ int main(void)
     if (doneFlags == 0) {
       HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_SET);
       HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_RESET);
-    } else if (doneFlags == DONE1_Pin) {
+    } else if (doneFlags == (DONE1_Pin | DONE2_Pin)) {
       doneFlags = 0;
 
-      HAL_GPIO_WritePin(CSn1_GPIO_Port, CSn1_Pin, GPIO_PIN_RESET);
-      HAL_SPI_Receive(&hspi1, (uint8_t*)&distances[0], 1, 100);
-      HAL_GPIO_WritePin(CSn1_GPIO_Port, CSn1_Pin, GPIO_PIN_SET);
+      for (int i = 0; i < sizeof(chipSelectPortPins) / sizeof(*chipSelectPortPins); i++) {
+        HAL_GPIO_WritePin(chipSelectPortPins[i].port, chipSelectPortPins[i].pin, GPIO_PIN_RESET);
+        HAL_SPI_Receive(&hspi1, (uint8_t*)&distances[i], 1, 100);
+        HAL_GPIO_WritePin(chipSelectPortPins[i].port, chipSelectPortPins[i].pin, GPIO_PIN_SET);
+      }
 
-      debugFeedback.distance0 = distances[0];
+      memcpy(debugFeedback.distances, distances, sizeof(debugFeedback.distances));
+
       HAL_UART_Transmit(&huart3, (uint8_t*)&debugFeedback, sizeof(debugFeedback), 100);
+    } else {
+      HAL_UART_Transmit(&huart3, (uint8_t*)&doneFlags, sizeof(doneFlags), 100);
     }
   }
   /* USER CODE END 3 */
@@ -299,6 +316,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(CSn1_GPIO_Port, CSn1_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(CSn2_GPIO_Port, CSn2_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, TRIG_Pin|LED1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : LED2_Pin */
@@ -321,6 +341,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(DONE1_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : DONE2_Pin */
+  GPIO_InitStruct.Pin = DONE2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(DONE2_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : CSn2_Pin */
+  GPIO_InitStruct.Pin = CSn2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(CSn2_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pins : TRIG_Pin LED1_Pin */
   GPIO_InitStruct.Pin = TRIG_Pin|LED1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -329,6 +362,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
   HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
