@@ -123,14 +123,14 @@ int main(void)
       HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_SET);
       HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_RESET);
     } else if (doneFlags == DONE1_Pin) {
+      doneFlags = 0;
+
       HAL_GPIO_WritePin(CSn1_GPIO_Port, CSn1_Pin, GPIO_PIN_RESET);
-      HAL_SPI_Receive(&hspi1, (uint8_t*)&distances[0], 1, 1000);
+      HAL_SPI_Receive(&hspi1, (uint8_t*)&distances[0], 1, 100);
       HAL_GPIO_WritePin(CSn1_GPIO_Port, CSn1_Pin, GPIO_PIN_SET);
 
       debugFeedback.distance0 = distances[0];
-      HAL_UART_Transmit(&huart3, (uint8_t*)&debugFeedback, sizeof(debugFeedback), 1000);
-
-      doneFlags = 0;
+      HAL_UART_Transmit(&huart3, (uint8_t*)&debugFeedback, sizeof(debugFeedback), 100);
     }
   }
   /* USER CODE END 3 */
@@ -207,7 +207,7 @@ static void MX_SPI1_Init(void)
   /* SPI1 parameter configuration*/
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES_RXONLY;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
   hspi1.Init.DataSize = SPI_DATASIZE_16BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
