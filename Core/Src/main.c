@@ -19,17 +19,17 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <string.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 typedef struct __attribute__((packed)) DebugFeedback {
-  uint16_t distances[2];
+  int16_t distances[12];
   uint16_t delimiter;
 } DebugFeedback;
 
@@ -59,11 +59,22 @@ DebugFeedback debugFeedback = {
     .delimiter = 0x0a0d
 };
 
-PortPin chipSelectPortPins[2] = {
+PortPin chipSelectPortPins[12] = {
     {CSn1_GPIO_Port, CSn1_Pin},
-    {CSn2_GPIO_Port, CSn2_Pin}
+    {CSn2_GPIO_Port, CSn2_Pin},
+    {CSn3_GPIO_Port, CSn3_Pin},
+    {CSn4_GPIO_Port, CSn4_Pin},
+    {CSn5_GPIO_Port, CSn5_Pin},
+    {CSn6_GPIO_Port, CSn6_Pin},
+    {CSn7_GPIO_Port, CSn7_Pin},
+    {CSn8_GPIO_Port, CSn8_Pin},
+    {CSn9_GPIO_Port, CSn9_Pin},
+    {CSn10_GPIO_Port, CSn10_Pin},
+    {CSn11_GPIO_Port, CSn11_Pin},
+    {CSn12_GPIO_Port, CSn12_Pin},
 };
-uint16_t distances[2] = {};
+
+int16_t distances[12] = {};
 uint16_t doneFlags = 0;
 /* USER CODE END PV */
 
@@ -114,7 +125,7 @@ int main(void)
   MX_USART3_UART_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-
+  bool isTriggered = false;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -124,18 +135,27 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+    /*HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
     HAL_Delay(50);
     HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
-    HAL_Delay(50);
+    HAL_Delay(50);*/
 
-    if (doneFlags == 0) {
+    if (doneFlags == 0 && !isTriggered) {
+      isTriggered = true;
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+
       HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_SET);
       HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_RESET);
-    } else if (doneFlags == (DONE1_Pin | DONE2_Pin)) {
+    } else if (
+        doneFlags == (
+            DONE1_Pin | DONE2_Pin | DONE3_Pin | DONE4_Pin | DONE5_Pin | DONE6_Pin
+            | DONE7_Pin | DONE8_Pin | DONE9_Pin | DONE10_Pin | DONE11_Pin | DONE12_Pin
+        )
+    ) {
+      isTriggered = false;
       doneFlags = 0;
+
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
 
       for (int i = 0; i < sizeof(chipSelectPortPins) / sizeof(*chipSelectPortPins); i++) {
         HAL_GPIO_WritePin(chipSelectPortPins[i].port, chipSelectPortPins[i].pin, GPIO_PIN_RESET);
@@ -146,9 +166,12 @@ int main(void)
       memcpy(debugFeedback.distances, distances, sizeof(debugFeedback.distances));
 
       HAL_UART_Transmit(&huart3, (uint8_t*)&debugFeedback, sizeof(debugFeedback), 100);
-    } else {
+
+      HAL_Delay(1);
+    }/* else {
       HAL_UART_Transmit(&huart3, (uint8_t*)&doneFlags, sizeof(doneFlags), 100);
-    }
+      HAL_Delay(50);
+    }*/
   }
   /* USER CODE END 3 */
 }
@@ -229,7 +252,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -310,23 +333,36 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, CSn12_Pin|CSn3_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(CSn1_GPIO_Port, CSn1_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(CSn2_GPIO_Port, CSn2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, CSn2_Pin|CSn7_Pin|CSn8_Pin|CSn9_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, CSn4_Pin|CSn5_Pin|CSn6_Pin|CSn10_Pin
+                          |CSn11_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, TRIG_Pin|LED1_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : LED2_Pin */
-  GPIO_InitStruct.Pin = LED2_Pin;
+  /*Configure GPIO pins : DONE12_Pin DONE7_Pin */
+  GPIO_InitStruct.Pin = DONE12_Pin|DONE7_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : CSn12_Pin LED2_Pin CSn3_Pin */
+  GPIO_InitStruct.Pin = CSn12_Pin|LED2_Pin|CSn3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pin : CSn1_Pin */
   GPIO_InitStruct.Pin = CSn1_Pin;
@@ -341,24 +377,34 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(DONE1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : DONE2_Pin */
-  GPIO_InitStruct.Pin = DONE2_Pin;
+  /*Configure GPIO pins : DONE2_Pin DONE3_Pin DONE8_Pin DONE9_Pin
+                           DONE10_Pin */
+  GPIO_InitStruct.Pin = DONE2_Pin|DONE3_Pin|DONE8_Pin|DONE9_Pin
+                          |DONE10_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(DONE2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : CSn2_Pin */
-  GPIO_InitStruct.Pin = CSn2_Pin;
+  /*Configure GPIO pins : CSn2_Pin CSn7_Pin CSn8_Pin CSn9_Pin */
+  GPIO_InitStruct.Pin = CSn2_Pin|CSn7_Pin|CSn8_Pin|CSn9_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(CSn2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : TRIG_Pin LED1_Pin */
-  GPIO_InitStruct.Pin = TRIG_Pin|LED1_Pin;
+  /*Configure GPIO pins : CSn4_Pin CSn5_Pin CSn6_Pin TRIG_Pin
+                           CSn10_Pin CSn11_Pin LED1_Pin */
+  GPIO_InitStruct.Pin = CSn4_Pin|CSn5_Pin|CSn6_Pin|TRIG_Pin
+                          |CSn10_Pin|CSn11_Pin|LED1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : DONE4_Pin DONE5_Pin DONE6_Pin DONE11_Pin */
+  GPIO_InitStruct.Pin = DONE4_Pin|DONE5_Pin|DONE6_Pin|DONE11_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
@@ -367,6 +413,18 @@ static void MX_GPIO_Init(void)
 
   HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 }
 
