@@ -33,6 +33,10 @@ typedef struct __attribute__((packed)) DebugFeedback {
   uint16_t delimiter;
 } DebugFeedback;
 
+typedef struct __attribute__((packed)) Feedback {
+  int16_t distances[12];
+} Feedback;
+
 typedef struct {
   GPIO_TypeDef *port;
   uint16_t pin;
@@ -53,12 +57,19 @@ SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim16;
 
+UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 DebugFeedback debugFeedback = {
     .distances = {},
     .delimiter = 0x0a0d
+};
+
+Feedback feedback = {
+    .distances = {}
 };
 
 PortPin chipSelectPortPins[12] = {
@@ -86,6 +97,8 @@ static void MX_GPIO_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM16_Init(void);
+static void MX_DMA_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -128,6 +141,8 @@ int main(void)
   MX_USART3_UART_Init();
   MX_SPI1_Init();
   MX_TIM16_Init();
+  MX_DMA_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   uint16_t donePinsMask = DONE1_Pin | DONE2_Pin | DONE3_Pin | DONE4_Pin | DONE5_Pin | DONE6_Pin
       | DONE7_Pin | DONE8_Pin | DONE9_Pin | DONE10_Pin | DONE11_Pin | DONE12_Pin;
@@ -136,6 +151,9 @@ int main(void)
 
   TIM16->PSC = 24;
   HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
+
+  //uint8_t rxValue = 0;
+  //HAL_UART_Receive_DMA(&huart2, &rxValue, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -158,10 +176,14 @@ int main(void)
         HAL_GPIO_WritePin(chipSelectPortPins[i].port, chipSelectPortPins[i].pin, GPIO_PIN_SET);
       }
 
-      memcpy(debugFeedback.distances, distances, sizeof(debugFeedback.distances));
+      memcpy(feedback.distances, distances, sizeof(feedback.distances));
+      HAL_UART_Transmit_DMA(&huart2, (uint8_t*)&feedback, sizeof(feedback));
+
+      //HAL_UART_Transmit(&huart2, (uint8_t*)&feedback, sizeof(feedback), 100);
 
       HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
 
+      memcpy(debugFeedback.distances, distances, sizeof(debugFeedback.distances));
       HAL_UART_Transmit(&huart3, (uint8_t*)&debugFeedback, sizeof(debugFeedback), 100);
     }
   }
@@ -213,7 +235,8 @@ void SystemClock_Config(void)
   }
   /** Initializes the peripherals clocks
   */
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART3;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_USART3;
+  PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
   PeriphClkInit.Usart3ClockSelection = RCC_USART3CLKSOURCE_PCLK1;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
@@ -325,6 +348,54 @@ static void MX_TIM16_Init(void)
 }
 
 /**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 1000000;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart2, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart2, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -369,6 +440,26 @@ static void MX_USART3_UART_Init(void)
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMAMUX1_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
 }
 
